@@ -19,31 +19,7 @@ using namespace std;
 
 // NOTE: this is based on BinaryenModuleRead from binaryen-c.cpp
 extern "C" BinaryenModuleRef BinaryenModuleSafeRead(const char* input, size_t inputSize) {
-    auto* wasm = new Module;
-    vector<char> buffer(input, input + inputSize);
-    try {
-        WasmBinaryBuilder parser(*wasm, buffer);
-        parser.read();
-    } catch (ParseException const&) {
-        // FIXME: support passing back the exception text
-        return NULL;
-    }
-    return wasm;
-}
-
-extern "C" BinaryenModuleRef translateToFuzz(const char *data, size_t len, bool emitAtomics) {
-    auto module = new Module();
-
-    vector<char> input(data, data + len);
-
-    TranslateToFuzzReader reader(*module, input);
-    if (emitAtomics) {
-        module->features.setAtomics();
-        module->hasFeaturesSection = true;
-    }
-    reader.build();
-
-    return module;
+    return BinaryenModuleRead((char*)input, inputSize);
 }
 
 extern "C" void BinaryenShimDisposeBinaryenModuleAllocateAndWriteResult(

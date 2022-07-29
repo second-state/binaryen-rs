@@ -133,7 +133,7 @@ fn gen_passes() {
 fn main() {
     if !Path::new("binaryen/.git").exists() {
         let _ = Command::new("git")
-            .args(&["submodule", "update", "--init"])
+            .args(&["submodule", "update", "--init", "--recursive"])
             .status();
     }
 
@@ -162,6 +162,7 @@ fn main() {
     let dst = cmake::Config::new("binaryen")
         .define("BUILD_STATIC_LIB", "ON")
         .define("ENABLE_WERROR", "OFF")
+        .define("DBUILD_TESTS","OFF")
         .build();
 
     println!("cargo:rustc-link-search=native={}/build/lib", dst.display());
@@ -178,7 +179,7 @@ fn main() {
         .cpp_link_stdlib(None)
         .warnings(false)
         .cpp(true)
-        .flag("-std=c++14")
+        .flag("-std=c++17")
         .compile("binaryen_shim");
 }
 
