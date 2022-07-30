@@ -1,4 +1,4 @@
 [submodule "binaryen-sys/binaryen"]
 	path = binaryen-sys/binaryen
 	url = https://github.com/second-state/binaryen.git
-	branch = "feat/perf_asyncify"
+	branch = "perf_asyncify"
