@@ -13,16 +13,6 @@ mod tests {
     use std::ptr;
 
     #[test]
-    fn test_fuzz() {
-        let vec: Vec<u8> = vec![0, 1, 2, 3, 4, 5];
-        unsafe {
-            let module = translateToFuzz(vec.as_ptr() as *const i8, vec.len(), true);
-            let result = BinaryenModuleValidate(module);
-            assert!(result != 0);
-        }
-    }
-
-    #[test]
     fn test_sanity() {
         // see https://github.com/WebAssembly/binaryen/blob/master/test/example/c-api-hello-world.c
         unsafe {
