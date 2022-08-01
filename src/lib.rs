@@ -14,10 +14,7 @@ use std::rc::Rc;
 use std::str::FromStr;
 use std::{ptr, slice};
 
-pub mod tools;
-
 /// Codegen configuration.
-#[derive(Default)]
 pub struct CodegenConfig {
     /// 0, 1, 2 correspond to -O0, -Os, -Oz
     pub shrink_level: u32,
@@ -27,8 +24,81 @@ pub struct CodegenConfig {
     pub debug_info: bool,
 }
 
+impl Default for CodegenConfig {
+    fn default() -> Self {
+        CodegenConfig {
+            shrink_level: 1,
+            optimization_level: 2,
+            debug_info: false,
+        }
+    }
+}
+
 fn is_valid_pass(pass: &str) -> bool {
     ffi::passes::OptimizationPass::from_str(pass).is_ok()
+}
+
+struct InnerPassOptions {
+    raw: ffi::BinaryenPassOptionsRef,
+}
+
+impl Drop for InnerPassOptions {
+    fn drop(&mut self) {
+        unsafe { ffi::BinaryenPassOptionsDispose(self.raw) }
+    }
+}
+
+struct PassOptions {
+    inner: Rc<InnerPassOptions>,
+}
+
+impl PassOptions {
+    pub fn new() -> PassOptions {
+        unsafe {
+            let raw = ffi::BinaryenPassOptionsCreate();
+            PassOptions::from_raw(raw)
+        }
+    }
+
+    pub unsafe fn from_raw(raw: ffi::BinaryenPassOptionsRef) -> PassOptions {
+        PassOptions {
+            inner: Rc::new(InnerPassOptions { raw }),
+        }
+    }
+
+    pub fn set_pass_argument(&mut self, name: &str, value: &str) {
+        unsafe {
+            let mut name = name.to_string();
+            name.push('\0');
+            let mut value = value.to_string();
+            value.push('\0');
+
+            ffi::BinaryenPassOptionsSetArgument(
+                self.inner.raw,
+                name.as_ptr().cast(),
+                value.as_ptr().cast(),
+            );
+        }
+    }
+
+    /// shrink_level: 0, 1, 2 correspond to -O0, -Os, -Oz
+    /// optimization_level: 0, 1, 2 correspond to -O0, -Os, -Oz
+    /// debug_info If set, the names section is emitted.
+    pub fn set_optimization_options(
+        &mut self,
+        shrink_level: u32,
+        optimize_level: u32,
+        debug_info: bool,
+    ) {
+        unsafe {
+            ffi::BinaryenPassOptionsSetOptimizationOptions(
+                self.inner.raw,
+                shrink_level as i32,
+                optimize_level as i32,
+                debug_info as i32,
+            );
+        }
+    }
 }
 
 struct InnerModule {
@@ -80,13 +150,18 @@ impl Module {
     /// Run the standard optimization passes on the module.
     pub fn optimize(&mut self, codegen_config: &CodegenConfig) {
         unsafe {
+            let mut options = PassOptions::new();
+            options.set_optimization_options(
+                codegen_config.shrink_level,
+                codegen_config.optimization_level,
+                codegen_config.debug_info,
+            );
+
             ffi::BinaryenModuleRunPassesWithSettings(
                 self.inner.raw,
                 std::ptr::null_mut(),
                 0 as u32,
-                codegen_config.shrink_level as i32,
-                codegen_config.optimization_level as i32,
-                codegen_config.debug_info as i32,
+                options.inner.raw,
             )
         }
     }
@@ -95,6 +170,7 @@ impl Module {
     pub fn run_optimization_passes<B: AsRef<str>, I: IntoIterator<Item = B>>(
         &mut self,
         passes: I,
+        pass_argument: &[(&str, &str)],
         codegen_config: &CodegenConfig,
     ) -> Result<(), ()> {
         let mut cstr_vec: Vec<_> = vec![];
@@ -107,6 +183,17 @@ impl Module {
             cstr_vec.push(CString::new(pass.as_ref()).unwrap());
         }
 
+        let mut options = PassOptions::new();
+        options.set_optimization_options(
+            codegen_config.shrink_level,
+            codegen_config.optimization_level,
+            codegen_config.debug_info,
+        );
+
+        for (name, values) in pass_argument {
+            options.set_pass_argument(name, values);
+        }
+
         // NOTE: BinaryenModuleRunPasses expectes a mutable ptr
         let mut ptr_vec: Vec<_> = cstr_vec.iter().map(|pass| pass.as_ptr()).collect();
 
@@ -115,9 +202,7 @@ impl Module {
                 self.inner.raw,
                 ptr_vec.as_mut_ptr(),
                 ptr_vec.len() as u32,
-                codegen_config.shrink_level as i32,
-                codegen_config.optimization_level as i32,
-                codegen_config.debug_info as i32,
+                options.inner.raw,
             )
         };
         Ok(())
@@ -192,7 +277,7 @@ mod tests {
         assert!(module.is_valid());
 
         module
-            .run_optimization_passes(&["vacuum", "untee"], &CodegenConfig::default())
+            .run_optimization_passes(&["vacuum", "untee"], &[], &CodegenConfig::default())
             .expect("passes succeeded");
 
         assert!(module.is_valid());
@@ -202,7 +287,7 @@ mod tests {
     fn test_invalid_optimization_passes() {
         let mut module = Module::new();
         assert!(module
-            .run_optimization_passes(&["invalid"], &CodegenConfig::default())
+            .run_optimization_passes(&["invalid"], &[], &CodegenConfig::default())
             .is_err());
     }
 
@@ -250,15 +335,16 @@ mod tests {
             "mod-asyncify-always-and-only-unwind",
             "mod-asyncify-never-unwind",
             "nm",
-            "no-exit-runtime",
+            "name-types",
+            "once-reduction",
             "optimize-added-constants",
             "optimize-added-constants-propagate",
             "optimize-instructions",
             "optimize-stack-ir",
             "pick-load-signs",
-            "post-assemblyscript",
-            "post-assemblyscript-finalize",
+            "poppify",
             "post-emscripten",
+            "optimize-for-js",
             "precompute",
             "precompute-propagate",
             "print",
@@ -268,6 +354,7 @@ mod tests {
             "print-call-graph",
             "print-function-map",
             "print-stack-ir",
+            "symbolmap",
             "remove-non-js-ops",
             "remove-imports",
             "remove-memory",
@@ -281,6 +368,9 @@ mod tests {
             "rse",
             "roundtrip",
             "safe-heap",
+            "set-globals",
+            "signature-pruning",
+            "signature-refining",
             "simplify-globals",
             "simplify-globals-optimizing",
             "simplify-locals",

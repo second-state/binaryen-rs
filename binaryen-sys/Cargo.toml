@@ -13,11 +13,11 @@ exclude = [
 ]
 
 [build-dependencies]
-cmake = "0.1.25"
+cmake = "0.1"
 cc = "1.0.4"
 regex = "1"
 heck = "0.3"
 
 [dev-dependencies]
-bindgen = "0.52.0"
+bindgen = "0.60.0"
 diff = "0.1"

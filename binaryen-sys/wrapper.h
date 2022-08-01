@@ -6,9 +6,17 @@
 extern "C" {
 #endif
 
-BinaryenModuleRef BinaryenModuleSafeRead(const char* input, size_t inputSize);
+BINARYEN_REF(PassOptions);
 
-BinaryenModuleRef translateToFuzz(const char *data, size_t len, bool emitAtomics);
+BinaryenPassOptionsRef BinaryenPassOptionsCreate(void);
+
+void BinaryenPassOptionsDispose(BinaryenPassOptionsRef passOptions);
+
+void BinaryenPassOptionsSetArgument(BinaryenPassOptionsRef passOptions, const char *key, const char *value);
+
+void BinaryenPassOptionsSetOptimizationOptions(BinaryenPassOptionsRef passOptions, int shrinkLevel, int optimizeLevel, int debugInfo);
+
+BinaryenModuleRef BinaryenModuleSafeRead(const char* input, size_t inputSize);
 
 void BinaryenShimDisposeBinaryenModuleAllocateAndWriteResult(
     BinaryenModuleAllocateAndWriteResult result
@@ -16,7 +24,7 @@ void BinaryenShimDisposeBinaryenModuleAllocateAndWriteResult(
 
 void BinaryenModuleRunPassesWithSettings(
     BinaryenModuleRef module, const char** passes, BinaryenIndex numPasses,
-    int shrinkLevel, int optimizeLevel, int debugInfo
+    BinaryenPassOptionsRef passOptions
 );
 
 int BinaryenModuleSafeValidate(BinaryenModuleRef module);

@@ -15,6 +15,7 @@ fn test_bindings_up_to_date() {
         .generate_comments(true)
         // https://github.com/rust-lang-nursery/rust-bindgen/issues/947#issuecomment-327100002
         .layout_tests(false)
+        .size_t_is_usize(true)
         .whitelist_function("Binaryen.*")
         .whitelist_type("Binaryen.*")
         .whitelist_function("translateToFuzz")
@@ -24,7 +25,7 @@ fn test_bindings_up_to_date() {
         .to_string();
 
     if std::env::var("BLESS").is_ok() {
-        std::fs::write("src/bindings.rs", expected).unwrap();
+        std::fs::write("bindings.rs", expected).unwrap();
     } else {
         let actual = include_str!("../src/bindings.rs");
         if expected == actual {

@@ -19,7 +19,19 @@ using namespace std;
 
 // NOTE: this is based on BinaryenModuleRead from binaryen-c.cpp
 extern "C" BinaryenModuleRef BinaryenModuleSafeRead(const char* input, size_t inputSize) {
-    return BinaryenModuleRead((char*)input, inputSize);
+  auto* wasm = new Module;
+  std::vector<char> buffer(false);
+  buffer.resize(inputSize);
+  std::copy_n(input, inputSize, buffer.begin());
+  try {
+    // TODO: allow providing features in the C API
+    WasmBinaryBuilder parser(*wasm, FeatureSet::MVP, buffer);
+    parser.read();
+  } catch (ParseException& p) {
+    // FIXME: support passing back the exception text
+    return NULL;
+  }
+  return wasm;
 }
 
 extern "C" void BinaryenShimDisposeBinaryenModuleAllocateAndWriteResult(
@@ -33,19 +45,40 @@ extern "C" void BinaryenShimDisposeBinaryenModuleAllocateAndWriteResult(
     }
 }
 
+extern "C" BinaryenPassOptionsRef BinaryenPassOptionsCreate(void) {
+  auto passOptions = new PassOptions();
+  passOptions->setDefaultOptimizationOptions();
+  return passOptions;
+}
+
+extern "C" void BinaryenPassOptionsSetOptimizationOptions(BinaryenPassOptionsRef passOptions, int shrinkLevel, int optimizeLevel, int debugInfo){
+  passOptions->shrinkLevel = shrinkLevel;
+  passOptions->optimizeLevel = optimizeLevel;
+  passOptions->debugInfo = debugInfo;
+}
+
+extern "C" void BinaryenPassOptionsDispose(BinaryenPassOptionsRef passOptions) { delete (PassOptions*)passOptions; }
+
+extern "C" void BinaryenPassOptionsSetArgument(BinaryenPassOptionsRef passOptions, const char *key, const char *value){
+  assert(key);
+  if (value){
+    passOptions->arguments[key] = value;
+  }
+  else{
+    passOptions->arguments.erase(key);
+  }
+}
+
 // NOTE: this is based on BinaryenModuleRunPasses and BinaryenModuleOptimizer
 // from binaryen-c.cpp
 // Main benefit is being thread safe.
 extern "C" void BinaryenModuleRunPassesWithSettings(
-    BinaryenModuleRef module, const char** passes, BinaryenIndex numPasses,
-    int shrinkLevel, int optimizeLevel, int debugInfo
-) {
+    BinaryenModuleRef module, const char **passes, BinaryenIndex numPasses,
+    BinaryenPassOptionsRef passOptions
+){
   Module* wasm = (Module*)module;
   PassRunner passRunner(wasm);
-  passRunner.options = PassOptions::getWithDefaultOptimizationOptions();
-  passRunner.options.shrinkLevel = shrinkLevel;
-  passRunner.options.optimizeLevel = optimizeLevel;
-  passRunner.options.debugInfo = debugInfo != 0;
+  passRunner.options = *passOptions;
   if (passes == nullptr) {
     passRunner.addDefaultOptimizationPasses();
   } else {
