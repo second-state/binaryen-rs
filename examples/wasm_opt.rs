@@ -22,36 +22,47 @@ fn parse_args() -> Result<Args, ()> {
             optimization_level: 0,
             shrink_level: 0,
             debug_info: true,
+            pass_argument: vec![],
         },
         "-O1" => binaryen::CodegenConfig {
             optimization_level: 1,
             shrink_level: 0,
             debug_info: true,
+            pass_argument: vec![],
         },
         "-O2" => binaryen::CodegenConfig {
             optimization_level: 2,
             shrink_level: 0,
             debug_info: true,
+            pass_argument: vec![],
         },
         "-O3" => binaryen::CodegenConfig {
             optimization_level: 3,
             shrink_level: 0,
             debug_info: true,
+            pass_argument: vec![],
+
         },
         "-O4" => binaryen::CodegenConfig {
             optimization_level: 4,
             shrink_level: 0,
             debug_info: true,
+            pass_argument: vec![],
+
         },
         "-Os" => binaryen::CodegenConfig {
             optimization_level: 2,
             shrink_level: 1,
             debug_info: true,
+            pass_argument: vec![],
+
         },
         "-Oz" => binaryen::CodegenConfig {
             optimization_level: 2,
             shrink_level: 2,
             debug_info: true,
+            pass_argument: vec![],
+
         },
         _ => return Err(()),
     };
