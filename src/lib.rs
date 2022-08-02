@@ -22,6 +22,8 @@ pub struct CodegenConfig {
     pub optimization_level: u32,
     /// If set, the names section is emitted.
     pub debug_info: bool,
+
+    pub pass_argument: Vec<(String, String)>,
 }
 
 impl Default for CodegenConfig {
@@ -30,7 +32,27 @@ impl Default for CodegenConfig {
             shrink_level: 1,
             optimization_level: 2,
             debug_info: false,
+            pass_argument: vec![],
         }
+    }
+}
+
+impl Into<PassOptions> for &CodegenConfig {
+    fn into(self) -> PassOptions {
+        let mut options = PassOptions::new();
+        options.set_optimization_options(
+            self.shrink_level,
+            self.optimization_level,
+            self.debug_info,
+        );
+
+        if !self.pass_argument.is_empty() {
+            for (k, v) in &self.pass_argument {
+                options.set_pass_argument(k, v);
+            }
+        }
+
+        options
     }
 }
 
@@ -150,12 +172,7 @@ impl Module {
     /// Run the standard optimization passes on the module.
     pub fn optimize(&mut self, codegen_config: &CodegenConfig) {
         unsafe {
-            let mut options = PassOptions::new();
-            options.set_optimization_options(
-                codegen_config.shrink_level,
-                codegen_config.optimization_level,
-                codegen_config.debug_info,
-            );
+            let options: PassOptions = codegen_config.into();
 
             ffi::BinaryenModuleRunPassesWithSettings(
                 self.inner.raw,
@@ -170,7 +187,6 @@ impl Module {
     pub fn run_optimization_passes<B: AsRef<str>, I: IntoIterator<Item = B>>(
         &mut self,
         passes: I,
-        pass_argument: &[(&str, &str)],
         codegen_config: &CodegenConfig,
     ) -> Result<(), ()> {
         let mut cstr_vec: Vec<_> = vec![];
@@ -183,16 +199,7 @@ impl Module {
             cstr_vec.push(CString::new(pass.as_ref()).unwrap());
         }
 
-        let mut options = PassOptions::new();
-        options.set_optimization_options(
-            codegen_config.shrink_level,
-            codegen_config.optimization_level,
-            codegen_config.debug_info,
-        );
-
-        for (name, values) in pass_argument {
-            options.set_pass_argument(name, values);
-        }
+        let options: PassOptions = codegen_config.into();
 
         // NOTE: BinaryenModuleRunPasses expectes a mutable ptr
         let mut ptr_vec: Vec<_> = cstr_vec.iter().map(|pass| pass.as_ptr()).collect();
@@ -277,7 +284,7 @@ mod tests {
         assert!(module.is_valid());
 
         module
-            .run_optimization_passes(&["vacuum", "untee"], &[], &CodegenConfig::default())
+            .run_optimization_passes(&["vacuum", "untee"], &CodegenConfig::default())
             .expect("passes succeeded");
 
         assert!(module.is_valid());
@@ -287,7 +294,7 @@ mod tests {
     fn test_invalid_optimization_passes() {
         let mut module = Module::new();
         assert!(module
-            .run_optimization_passes(&["invalid"], &[], &CodegenConfig::default())
+            .run_optimization_passes(&["invalid"], &CodegenConfig::default())
             .is_err());
     }
 
