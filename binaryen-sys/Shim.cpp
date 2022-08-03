@@ -99,3 +99,8 @@ extern "C" int BinaryenModuleSafeValidate(BinaryenModuleRef module) {
   wasm->features = features;
   return ret;
 }
+
+extern "C" BinaryenFunctionRef BinaryenGetStart(BinaryenModuleRef module) {
+  auto start = ((Module *)module)->start;
+  return ((Module *)module)->getFunctionOrNull(start);
+}

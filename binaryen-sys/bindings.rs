@@ -4230,3 +4230,6 @@ extern "C" {
 extern "C" {
     pub fn BinaryenModuleSafeValidate(module: BinaryenModuleRef) -> ::std::os::raw::c_int;
 }
+extern "C" {
+    pub fn BinaryenGetStart(module: BinaryenModuleRef) -> BinaryenFunctionRef;
+}

@@ -7,8 +7,12 @@ extern crate rand;
 extern crate wat;
 
 pub use binaryen_sys as ffi;
+use ffi::BinaryenExpressionRef;
+use functions::Function;
 
-use std::ffi::CString;
+pub mod functions;
+
+use std::ffi::{CString, NulError};
 use std::os::raw::c_char;
 use std::rc::Rc;
 use std::str::FromStr;
@@ -241,6 +245,134 @@ impl Module {
             ffi::BinaryenShimDisposeBinaryenModuleAllocateAndWriteResult(write_result);
 
             binary_buf
+        }
+    }
+}
+
+pub trait BinaryenConstValue {
+    fn value(&self, module: ffi::BinaryenModuleRef) -> ffi::BinaryenExpressionRef;
+    fn ty(&self) -> ffi::BinaryenType;
+}
+
+macro_rules! impl_binaryen_const {
+    ($t:ty,$ex_type:expr,$self_ident:ident,$ex_value:expr) => {
+        impl BinaryenConstValue for $t {
+            fn value(&self, module: ffi::BinaryenModuleRef) -> ffi::BinaryenExpressionRef {
+                let $self_ident = self;
+                unsafe { ffi::BinaryenConst(module, $ex_value) }
+            }
+
+            fn ty(&self) -> ffi::BinaryenType {
+                unsafe { $ex_type }
+            }
+        }
+    };
+}
+
+impl_binaryen_const!(
+    i64,
+    ffi::BinaryenTypeInt64(),
+    s,
+    ffi::BinaryenLiteralInt64(*s)
+);
+
+impl_binaryen_const!(
+    i32,
+    ffi::BinaryenTypeInt32(),
+    s,
+    ffi::BinaryenLiteralInt32(*s)
+);
+
+impl_binaryen_const!(
+    f64,
+    ffi::BinaryenTypeFloat64(),
+    s,
+    ffi::BinaryenLiteralFloat64(*s)
+);
+
+impl_binaryen_const!(
+    f32,
+    ffi::BinaryenTypeFloat32(),
+    s,
+    ffi::BinaryenLiteralFloat32(*s)
+);
+
+impl Module {
+    pub fn add_global<T: BinaryenConstValue>(
+        &self,
+        name: &str,
+        mutable: bool,
+        value: T,
+    ) -> Result<ffi::BinaryenGlobalRef, NulError> {
+        unsafe {
+            let c_name = std::ffi::CString::new(name)?;
+
+            let ty = value.ty();
+            let init_value = value.value(self.inner.raw);
+
+            Ok(ffi::BinaryenAddGlobal(
+                self.inner.raw,
+                c_name.as_ptr(),
+                ty,
+                mutable,
+                init_value,
+            ))
+        }
+    }
+
+    pub fn binaryen_const_value<T: BinaryenConstValue>(&self, v: T) -> ffi::BinaryenExpressionRef {
+        v.value(self.inner.raw)
+    }
+
+    pub fn get_start(&self) -> Option<Function> {
+        unsafe {
+            let raw = ffi::BinaryenGetStart(self.inner.raw);
+            if raw.is_null() {
+                None
+            } else {
+                Some(Function::from_raw(raw))
+            }
+        }
+    }
+
+    pub fn set_start(&self, start: Function) {
+        unsafe { ffi::BinaryenSetStart(self.inner.raw, start.raw) }
+    }
+
+    pub fn binaryen_if(
+        &self,
+        condition: BinaryenExpressionRef,
+        if_true: BinaryenExpressionRef,
+        if_false: BinaryenExpressionRef,
+    ) -> BinaryenExpressionRef {
+        unsafe { ffi::BinaryenIf(self.inner.raw, condition, if_true, if_false) }
+    }
+
+    pub fn binaryen_binary(
+        &self,
+        op: ffi::BinaryenOp,
+        left: BinaryenExpressionRef,
+        right: BinaryenExpressionRef,
+    ) -> BinaryenExpressionRef {
+        unsafe { ffi::BinaryenBinary(self.inner.raw, op, left, right) }
+    }
+
+    pub fn binaryen_get_global(&self, global_ref: ffi::BinaryenGlobalRef) -> BinaryenExpressionRef {
+        unsafe {
+            let name = ffi::BinaryenGlobalGetName(global_ref);
+            let global_type = ffi::BinaryenGlobalGetType(global_ref);
+            ffi::BinaryenGlobalGet(self.inner.raw, name, global_type)
+        }
+    }
+
+    pub fn binaryen_set_global(
+        &self,
+        global_ref: ffi::BinaryenGlobalRef,
+        value: BinaryenExpressionRef,
+    ) -> BinaryenExpressionRef {
+        unsafe {
+            let name = ffi::BinaryenGlobalGetName(global_ref);
+            ffi::BinaryenGlobalSet(self.inner.raw, name, value)
         }
     }
 }

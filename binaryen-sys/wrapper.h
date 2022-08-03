@@ -29,6 +29,8 @@ void BinaryenModuleRunPassesWithSettings(
 
 int BinaryenModuleSafeValidate(BinaryenModuleRef module);
 
+BinaryenFunctionRef BinaryenGetStart(BinaryenModuleRef module);
+
 #ifdef __cplusplus
 }
 #endif
