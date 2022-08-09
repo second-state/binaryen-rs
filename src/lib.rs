@@ -324,6 +324,14 @@ impl Module {
         v.value(self.inner.raw)
     }
 
+    pub fn get_export(&self, external_name: &str) -> Result<ffi::BinaryenExportRef, NulError> {
+        unsafe {
+            let c_name = std::ffi::CString::new(external_name)?;
+            let export_ref = ffi::BinaryenGetExport(self.inner.raw, c_name.as_ptr());
+            Ok(export_ref)
+        }
+    }
+
     pub fn add_function_export(
         &self,
         func: &Function,
