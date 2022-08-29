@@ -142,7 +142,10 @@ fn main() {
     gen_passes();
 
     let target = env::var("TARGET").ok();
-    if target.as_ref().map_or(false, |target| target.contains("emscripten")) {
+    if target
+        .as_ref()
+        .map_or(false, |target| target.contains("emscripten"))
+    {
         let mut build_wasm_binaryen_args = vec![];
         if get_debug() {
             build_wasm_binaryen_args.push("-g");
@@ -163,7 +166,9 @@ fn main() {
 
     let dst = cmake::Config::new("binaryen")
         .define("BUILD_STATIC_LIB", "ON")
+        .define("BUILD_LLVM_DWARF", "OFF")
         .define("ENABLE_WERROR", "OFF")
+        .define("BUILD_TESTS", "OFF")
         .build();
 
     println!("cargo:rustc-link-search=native={}/build/lib", dst.display());
