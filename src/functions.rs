@@ -18,7 +18,11 @@ impl<'a> Function<'a> {
         unsafe { ffi::BinaryenFunctionSetBody(self.raw, body) }
     }
 
-    pub fn from_raw(raw: ffi::BinaryenFunctionRef) -> Function<'a> {
+    pub unsafe fn raw(&self) -> ffi::BinaryenFunctionRef {
+        self.raw
+    }
+
+    pub unsafe fn from_raw(raw: ffi::BinaryenFunctionRef) -> Function<'a> {
         Function {
             raw,
             _p: PhantomData,

@@ -143,6 +143,10 @@ pub struct Module {
 }
 
 impl Module {
+    pub unsafe fn raw(&self) -> ffi::BinaryenModuleRef {
+        self.inner.raw
+    }
+
     /// Create a new empty Module.
     ///
     /// This is not public since all IR-construction related operations were removed from
