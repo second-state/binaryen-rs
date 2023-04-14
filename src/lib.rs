@@ -151,6 +151,11 @@ impl Module {
         }
     }
 
+    /// Get `ffi::BinaryenModuleRef` from `Module`
+    pub unsafe fn raw(&self) -> ffi::BinaryenModuleRef {
+        self.inner.raw
+    }
+
     /// Deserialize a module from binary form.
     ///
     /// Returns `Err` if an invalid module is given.
