@@ -143,6 +143,7 @@ impl Module {
     ///
     /// This is not public since all IR-construction related operations were removed from
     /// Binaryen and thus there is not much sense in creating an empty module.
+    #[allow(unused)]
     fn new() -> Module {
         unsafe {
             let raw = ffi::BinaryenModuleCreate();
